@@ -11,6 +11,7 @@
 #include <stdlib.h>
 
 #include "ondawagon.h"
+#include "dongle.h"
 
 static const struct devlist {
 	uint16_t vendor;
@@ -72,28 +73,61 @@ static int find_device(uint16_t vendor, uint16_t product,
 	return 0;
 }
 
-static void do_device(libusb_device *dev)
+static struct _dongle *open_dongle(libusb_device *dev, unsigned int flags)
 {
-	struct libusb_device_descriptor d;
+	struct _dongle *d;
+
+	d = calloc(1, sizeof(*d));
+	if ( NULL == d ) {
+		fprintf(stderr, "%s: calloc: %s\n",
+			odw_cmd, system_err());
+		goto err;
+	}
+
+	if ( libusb_open(dev, &d->d_handle) ) {
+		fprintf(stderr, "%s: libusb_open: %s\n",
+			odw_cmd, system_err());
+		goto err_free;
+	}
+
+	return d;
+err_free:
+	free(d);
+err:
+	return NULL;
+}
+
+static int do_device(libusb_device *dev, struct list_head *list)
+{
+	struct libusb_device_descriptor desc;
 	unsigned int flags;
+	struct _dongle *d;
 
-	if ( libusb_get_device_descriptor(dev, &d) )
-		return;
+	if ( libusb_get_device_descriptor(dev, &desc) )
+		return 0;
 
-	if ( !find_device(d.idVendor, d.idProduct, &flags) )
-		return;
+	if ( !find_device(desc.idVendor, desc.idProduct, &flags) )
+		return 1; /* we don't care about this device */
 
 	printf("%03d.%03d = %04x:%04x (flags 0x%x)\n",
 		libusb_get_bus_number(dev),
 		libusb_get_device_address(dev),
-		d.idVendor, d.idProduct, flags);
+		desc.idVendor, desc.idProduct, flags);
+	
+	d = open_dongle(dev, flags);
+	if ( NULL == d )
+		return 0;
+	
+	list_add_tail(&d->d_list, list);
+	return 1;
 }
 
-static int do_all_devices(void)
+static int do_all_devices(dongle_t *dongles, size_t *nmemb)
 {
 	libusb_device **devlist;
 	ssize_t numdev, i;
 	int ret = 0;
+	LIST_HEAD(list);
 
 	if ( !do_init() )
 		goto out;
@@ -102,11 +136,10 @@ static int do_all_devices(void)
 	if ( numdev <= 0 )
 		goto out;
 
-	for(i = 0; i < numdev; i++) {
-		do_device(devlist[i]);
+	for(ret = 1, i = 0; i < numdev; i++) {
+		if ( !do_device(devlist[i], &list) )
+			ret = 0;
 	}
-
-	ret = 1;
 
 	libusb_free_device_list(devlist, 1);
 out:
@@ -115,7 +148,7 @@ out:
 
 int dongle_list_all(dongle_t *dev, size_t *nmemb)
 {
-	return do_all_devices();
+	return do_all_devices(dev, nmemb);
 }
 
 dongle_t dongle_open(const char *serial)

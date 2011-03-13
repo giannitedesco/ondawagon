@@ -9,8 +9,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "ondawagon.h"
+
+const char *system_err(void)
+{
+	return strerror(errno);
+}
 
 static int do_list(void)
 {
