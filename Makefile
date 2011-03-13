@@ -15,15 +15,17 @@ TOUCH := touch
 RMDIR := rm -rf
 CFLAGS := -g -pipe -Os -Wall -Wsign-compare -Wcast-align -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wmissing-noreturn -finline-functions -Wmissing-format-attribute $(LIBUSB_CFLAGS)
 
-ALL_BIN := onda
-ONDA_OBJ := onda.o
+ALL_BIN := ondawagon
+ONDA_OBJ := devlist.o \
+		ondawagon.o
 ALL_OBJ := $(ONDA_OBJ)
+ALL_DEP := $(patsubst %.o, .%.d, $(ALL_OBJ))
 
 install:
 
 uninstall:
 
-onda: $(ONDA_OBJ)
+ondawagon: $(ONDA_OBJ)
 	@echo " [LINK] $@"
 	@$(CC) $(CFLAGS) -o $@ $(ONDA_OBJ) $(LIBUSB_LIBS)
 
@@ -41,7 +43,7 @@ endif
 
 all: $(ALL_BIN)
 clean:
-	$(RM) Config.mak $(ALL_BIN) $(ALL_OBJ)
+	$(RM) Config.mak $(ALL_BIN) $(ALL_OBJ) $(ALL_DEP)
 
 ifneq ($(MAKECMDGOALS),clean)
 -include .*.d
