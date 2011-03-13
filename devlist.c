@@ -12,29 +12,63 @@
 
 #include "ondawagon.h"
 
-static const struct {
+static const struct devlist {
 	uint16_t vendor;
 	uint16_t product;
 #define FLAG_ZEROCD	(1 << 0)
 	unsigned int flags;
 }devlist[] = {
+	/* ordered by vendor then product */
 	{0x19d2, 0x1007, FLAG_ZEROCD},
 	{0x19d2, 0x1008, 0},
 };
 
 static libusb_context *ctx;
 
+static void do_exit(void)
+{
+	libusb_exit(ctx);
+	ctx = NULL;
+}
+
 static int do_init(void)
 {
 	if ( NULL == ctx && libusb_init(&ctx) )
 		return 0;
-	/* FIXME: atexit() */
+	atexit(do_exit);
 	return 1;
 }
 
+/* binary search the known-device table */
 static int find_device(uint16_t vendor, uint16_t product,
 				unsigned int *flags)
 {
+	const struct devlist *d = devlist;
+	unsigned int n = sizeof(devlist) / sizeof(*devlist);
+	uint32_t needle, haystack;
+
+	needle = (vendor << 16) | product;
+
+	while ( n ) {
+		unsigned int i;
+		int cmp;
+
+		i = n / 2U;
+
+		haystack = (d[i].vendor << 16) | d[i].product;
+
+		cmp = haystack - needle;
+		if ( cmp < 0 ) {
+			n = i;
+		}else if ( cmp > 0 ) {
+			d = d + (i + 1U);
+			n = n - (i + 1U);
+		}else{
+			*flags = d[i].flags;
+			return 1;
+		}
+	}
+
 	return 0;
 }
 

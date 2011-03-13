@@ -3,6 +3,8 @@
 
 typedef struct _dongle *dongle_t;
 
+extern const char *odw_cmd;
+
 int dongle_list_all(dongle_t *dev, size_t *nmemb);
 dongle_t dongle_open(const char *serial);
 
