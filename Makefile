@@ -2,7 +2,7 @@
 TARGET: all
 
 CONFIG_MAK := Config.mak
-$(CONFIG_MAK):
+$(CONFIG_MAK): ./configure
 	./configure
 
 -include $(CONFIG_MAK)
