@@ -1,0 +1,4 @@
+Config.mak
+*.o
+.*.d
+onda
