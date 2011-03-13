@@ -130,6 +130,8 @@ static char *get_serial(struct _dongle *d)
 					(uint8_t *)&desc, sizeof(desc));
 	if ( ret != sizeof(desc) )
 		return NULL;
+	if ( desc.type != LIBUSB_DT_STRING )
+		return NULL;
 
 	ret = libusb_get_string_descriptor(d->d_handle, desc.str,
 					(desc.lang_hi << 8) | desc.lang_lo,
