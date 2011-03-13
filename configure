@@ -1,0 +1,15 @@
+#!/bin/sh
+
+config_mak='Config.mak'
+
+libusb_ver=`libusb-config --version`
+test $? -eq 0 || exit 1
+echo "libusb version: $libusb_ver"
+
+libusb_cflags=`libusb-config --cflags`
+libusb_libs=`libusb-config --libs`
+
+echo -n > $config_mak
+
+echo "LIBUSB_CFLAGS := $libusb_cflags" >> $config_mak
+echo "LIBUSB_LIBS := $libusb_libs" >> $config_mak
