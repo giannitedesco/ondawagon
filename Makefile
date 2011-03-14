@@ -17,6 +17,7 @@ CFLAGS := -g -pipe -Os -Wall -Wsign-compare -Wcast-align -Waggregate-return -Wst
 
 ALL_BIN := ondawagon
 ONDA_OBJ := devlist.o \
+		dongle.o \
 		ondawagon.o
 ALL_OBJ := $(ONDA_OBJ)
 ALL_DEP := $(patsubst %.o, .%.d, $(ALL_OBJ))
