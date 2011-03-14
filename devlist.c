@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include "ondawagon.h"
 #include "dongle.h"
@@ -216,12 +217,23 @@ static int do_device(libusb_device *dev, struct list_head *list)
 	return 1;
 }
 
-static int do_all_devices(dongle_t *dongles, size_t *nmemb)
+char *dongle_serial(dongle_t d)
+{
+	assert(NULL != d->d_serial);
+	return d->d_serial;
+}
+
+static int do_all_devices(dongle_t **dongles, size_t *nmemb)
 {
 	libusb_device **devlist;
+	struct _dongle *d;
 	ssize_t numdev, i;
-	int ret = 0;
 	LIST_HEAD(list);
+	int ret = 0;
+	size_t n;
+
+	*dongles = NULL;
+	*nmemb = 0;
 
 	if ( !do_init() )
 		goto out;
@@ -236,11 +248,29 @@ static int do_all_devices(dongle_t *dongles, size_t *nmemb)
 	}
 
 	libusb_free_device_list(devlist, 1);
+
+	n = 0;
+	list_for_each_entry(d, &list, d_list) {
+		n++;
+	}
+
+	*dongles = calloc(n, sizeof(*dongles));
+	if ( NULL == *dongles ) {
+		ret = 0;
+		goto out;
+	}
+
+	n = 0;
+	list_for_each_entry(d, &list, d_list) {
+		(*dongles)[n++] = d;
+	}
+
+	*nmemb = n;
 out:
 	return ret;
 }
 
-int dongle_list_all(dongle_t *dev, size_t *nmemb)
+int dongle_list_all(dongle_t **dev, size_t *nmemb)
 {
 	return do_all_devices(dev, nmemb);
 }

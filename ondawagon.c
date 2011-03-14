@@ -20,14 +20,19 @@ const char *system_err(void)
 
 static int do_list(void)
 {
-	dongle_t list;
+	dongle_t *list;
 	size_t i, nmemb;
 
-	if ( !dongle_list_all(&list, &nmemb) )
-		return EXIT_FAILURE;
+	if ( !dongle_list_all(&list, &nmemb) ) {
+		fprintf(stderr, "%s: there were some errors\n", odw_cmd);
+	}
 
 	for(i = 0; i < nmemb; i++) {
+		printf("%s\n", dongle_serial(list[i]));
+		dongle_close(list[i]);
 	}
+
+	free(list);
 
 	return EXIT_SUCCESS;
 }
