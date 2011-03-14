@@ -146,6 +146,12 @@ static char *get_serial(struct _dongle *d)
 	return unidecode(buf + 2, ret - 2);
 }
 
+void dongle_close(dongle_t d)
+{
+	libusb_close(d->d_handle);
+	free(d->d_serial);
+	free(d);
+}
 
 static struct _dongle *open_dongle(libusb_device *dev, unsigned int flags)
 {
