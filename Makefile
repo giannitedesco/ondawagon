@@ -28,7 +28,7 @@ uninstall:
 
 ondawagon: $(ONDA_OBJ)
 	@echo " [LINK] $@"
-	@$(CC) $(CFLAGS) -o $@ $(ONDA_OBJ) $(LIBUSB_LIBS)
+	@$(CC) $(CFLAGS) -o $@ $(ONDA_OBJ) $(LIBUSB_LIBS) $(LIBREADLINE_LIBS)
 
 ifeq ($(filter clean, $(MAKECMDGOALS)),clean)
 CLEAN_DEP := clean

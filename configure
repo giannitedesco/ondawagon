@@ -13,3 +13,4 @@ echo -n > $config_mak
 
 echo "LIBUSB_CFLAGS := $libusb_cflags" >> $config_mak
 echo "LIBUSB_LIBS := $libusb_libs" >> $config_mak
+echo "LIBREADLINE_LIBS := -lreadline" >> $config_mak

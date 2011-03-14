@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "ondawagon.h"
 #include "dongle.h"
@@ -32,6 +33,7 @@ void dongle_close(dongle_t d)
 {
 	libusb_close(d->d_handle);
 	free(d->d_serial);
+	free(d->d_label);
 	list_del(&d->d_list);
 	free(d);
 }
@@ -84,16 +86,15 @@ static int kill_kernel_driver(libusb_device_handle *h)
 
 	dev = libusb_get_device(h);
 	if ( libusb_get_active_config_descriptor(dev, &conf) ) {
-		libusb_unref_device(dev);
 		return 0;
 	}
-	libusb_unref_device(dev);
 
 	for(ret = 1, i = 0; i < conf->bNumInterfaces; i++) {
 		if ( libusb_detach_kernel_driver(h, i) && errno != ENODATA )
 			ret = 0;
 	}
 
+	libusb_free_config_descriptor(conf);
 	return ret;
 }
 
@@ -102,9 +103,48 @@ int dongle_needs_ready(dongle_t d)
 	return d->d_state == DONGLE_STATE_ZEROCD;
 }
 
+int dongle__make_live(struct _dongle *d)
+{
+	struct libusb_config_descriptor *conf;
+	libusb_device *dev;
+	unsigned int i;
+	int ret;
+
+	if ( d->d_state >= DONGLE_STATE_LIVE )
+		return 1;
+
+	dev = libusb_get_device(d->d_handle);
+	if ( libusb_get_active_config_descriptor(dev, &conf) ) {
+		return 0;
+	}
+
+	/* Claim all vendor specific interfaces */
+	for(ret = 1, i = 0; i < conf->bNumInterfaces; i++) {
+		if ( conf->interface[i].altsetting[0].bInterfaceClass != 0xff )
+			continue;
+		if ( conf->interface[i].altsetting[0].bInterfaceSubClass != 0xff)
+			continue;
+		if ( conf->interface[i].altsetting[0].bInterfaceProtocol != 0xff )
+			continue;
+		libusb_detach_kernel_driver(d->d_handle, i);
+		if ( libusb_claim_interface(d->d_handle, i) ) {
+			fprintf(stderr, "%s: libusb_claim_interface: %s\n",
+				odw_cmd, system_err());
+			libusb_free_config_descriptor(conf);
+			return 0;
+		}
+		printf("%s: %s: claimed interface %u\n",
+			odw_cmd, d->d_serial, i);
+	}
+
+	d->d_state = DONGLE_STATE_LIVE;
+	libusb_free_config_descriptor(conf);
+	return 1;
+}
+
 int dongle_ready(dongle_t d)
 {
-	static uint8_t buf[0x1f] = {
+	static const uint8_t buf[0x1f] = {
 		0x55, 0x53, 0x42, 0x43, 0x68, 0xcd, 0xb7, 0xff,
 		0x24, 0x00, 0x00, 0x00, 0x80, 0x00, 0x06, 0x85,
 		0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00,
@@ -133,8 +173,9 @@ int dongle_ready(dongle_t d)
 		return 0;
 	}
 
-	if ( libusb_bulk_transfer(d->d_handle, 1, buf, sizeof(buf),
-					&ret, 1000) || ret != sizeof(buf) ) {
+	if ( libusb_bulk_transfer(d->d_handle, 1,
+				(uint8_t *)buf, sizeof(buf),
+				&ret, 1000) || ret != sizeof(buf) ) {
 		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
 			odw_cmd, system_err());
 		return 0;
@@ -205,3 +246,33 @@ err:
 	return NULL;
 }
 
+int dongle_atcmd(dongle_t d, const char *cmd)
+{
+	uint8_t buf[256];
+	size_t cmd_len;
+	int ret;
+
+	if ( !dongle__make_live(d) )
+		return 0;
+
+	cmd_len = strlen(cmd);
+
+	if ( libusb_bulk_transfer(d->d_handle, 2,
+					(uint8_t *)cmd, cmd_len, &ret,
+					1000) || (size_t)ret != cmd_len ) {
+		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+
+	if ( libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 2,
+					buf, sizeof(buf),
+					&ret, 1000) || ret <= 0 ) {
+		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+
+	printf("<<< %.*s\n", ret, buf);
+	return 1;
+}

@@ -4,6 +4,9 @@
  * Released under the terms of the GNU GPL version 3
 */
 
+#include <readline/readline.h>
+#include <readline/history.h>
+#include <limits.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -37,6 +40,65 @@ static int do_list(void)
 
 	free(list);
 
+	return EXIT_SUCCESS;
+}
+
+static char *histfn;
+
+static void do_init_history(const char *fn)
+{
+	char buf[PATH_MAX];
+	char *home;
+
+	using_history();
+
+	home = getenv("HOME");
+	if ( NULL == home )
+		return;
+	
+	snprintf(buf, sizeof(buf), "%s/%s", home, fn);
+
+	histfn = strdup(buf);
+
+	read_history(buf);
+}
+
+static void do_save_history(void)
+{
+	if ( histfn )
+		write_history(histfn);
+}
+
+static void do_add_history(const char *inp)
+{
+	add_history(inp);
+	do_save_history();
+}
+
+static int do_shell(const char *ser)
+{
+	dongle_t d;
+	char *inp;
+
+	d = dongle_open(ser);
+	if ( NULL == d ) {
+		fprintf(stderr, "%s: dongle: %s: not found\n", odw_cmd, ser);
+		return EXIT_FAILURE;
+	}
+
+	printf("--- ONDA 3G dongle command shell ---\n");
+	printf("Send EOF (ctrl-D) to exit\n");
+
+	do_init_history(".ondawagon");
+
+	dongle_atcmd(d, "AT\n0\n");
+	while( (inp = readline("onda$ ") ) ) {
+		do_add_history(inp);
+		dongle_atcmd(d, inp);
+	}
+
+	rl_free_line_state();
+	dongle_close(d);
 	return EXIT_SUCCESS;
 }
 
@@ -95,6 +157,11 @@ int main(int argc, char **argv)
 		if ( !strcmp(argv[i], "--ready") && i + 1 < argc ) {
 			const char *ser = argv[i + 1];
 			ret = do_ready(ser);
+			break;
+		}
+		if ( !strcmp(argv[i], "--shell") && i + 1 < argc ) {
+			const char *ser = argv[i + 1];
+			ret = do_shell(ser);
 			break;
 		}
 		if ( !strcmp(argv[i], "--help") ||
