@@ -74,6 +74,8 @@ int main(int argc, char **argv)
 			ret = EXIT_SUCCESS;
 			break;
 		}
+		fprintf(stderr, "%s: Unrecognized option: %s\n",
+			odw_cmd, argv[i]);
 		usage(stderr);
 		ret = EXIT_FAILURE;
 		break;
