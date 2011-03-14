@@ -28,8 +28,9 @@ static int do_list(void)
 	}
 
 	for(i = 0; i < nmemb; i++) {
-		printf("%s %s\n",
+		printf("%s: %s: %s\n",
 			dongle_serial(list[i]),
+			dongle_needs_ready(list[i]) ? "ZEROCD" : "READY",
 			dongle_label(list[i]));
 		dongle_close(list[i]);
 	}
@@ -68,8 +69,9 @@ static void usage(FILE *f)
 	fprintf(f, "Can you hear us now?\n");
 	fprintf(f, "\n");
 	fprintf(f, "Usage:\n");
-	fprintf(f, " --list          List all dongles\n");
-	fprintf(f, " --help, -h      Display this massage\n");
+	fprintf(f, " --list             List all dongles\n");
+	fprintf(f, " --ready <serial>   Switch dongle in to 3G mode\n");
+	fprintf(f, " --help, -h         Display this massage\n");
 	fprintf(f, "\n");
 }
 

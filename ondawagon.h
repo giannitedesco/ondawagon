@@ -13,5 +13,6 @@ int dongle_ready(dongle_t d);
 void dongle_close(dongle_t d);
 char *dongle_serial(dongle_t d);
 char *dongle_label(dongle_t d);
+int dongle_needs_ready(dongle_t d);
 
 #endif /* _ONDAWAGON_H */

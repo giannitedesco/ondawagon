@@ -12,6 +12,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include "ondawagon.h"
 #include "dongle.h"
@@ -96,6 +97,11 @@ static int kill_kernel_driver(libusb_device_handle *h)
 	return ret;
 }
 
+int dongle_needs_ready(dongle_t d)
+{
+	return d->d_state == DONGLE_STATE_ZEROCD;
+}
+
 int dongle_ready(dongle_t d)
 {
 	static uint8_t buf[0x1f] = {
@@ -106,10 +112,10 @@ int dongle_ready(dongle_t d)
 	};
 	int ret;
 
-	if ( d->d_state >= DONGLE_STATE_READY )
+	if ( d->d_state != DONGLE_STATE_ZEROCD )
 		return 1;
-	
-	assert(d->d_state == DONGLE_STATE_ZEROCD);
+
+	printf("%s; Mode-switching %s\n", odw_cmd, d->d_serial);
 	if ( !kill_kernel_driver(d->d_handle) ) {
 		fprintf(stderr, "%s: kill_kernel_driver: %s\n",
 			odw_cmd, system_err());
@@ -140,7 +146,6 @@ int dongle_ready(dongle_t d)
 		return 0;
 	}
 
-	d->d_state = DONGLE_STATE_READY;
 	return 1;
 }
 
@@ -163,11 +168,9 @@ struct _dongle *dongle__open(libusb_device *dev, unsigned int flags,
 	}
 
 	if ( flags & DEVLIST_ZEROCD ) {
-		//if ( !kill_kernel_driver(dev, d->d_handle) )
-		//	goto err_close;
 		d->d_state = DONGLE_STATE_ZEROCD;
 	}else{
-		d->d_state = DONGLE_STATE_LIVE;
+		d->d_state = DONGLE_STATE_READY;
 	}
 
 #if 0
