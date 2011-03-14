@@ -98,7 +98,6 @@ static int kill_kernel_driver(libusb_device_handle *h)
 
 int dongle_ready(dongle_t d)
 {
-	static uint8_t zero = 0;
 	static uint8_t buf[0x1f] = {
 		0x55, 0x53, 0x42, 0x43, 0x68, 0xcd, 0xb7, 0xff,
 		0x24, 0x00, 0x00, 0x00, 0x80, 0x00, 0x06, 0x85,
@@ -117,12 +116,6 @@ int dongle_ready(dongle_t d)
 		return 0;
 	}
 
-	if ( libusb_reset_device(d->d_handle) ) {
-		fprintf(stderr, "%s: libusb_reset_device: %s\n",
-			odw_cmd, system_err());
-		return 0;
-	}
-
 	if ( libusb_set_configuration(d->d_handle, 1) ) {
 		fprintf(stderr, "%s: libusb_set_configuration: %s\n",
 			odw_cmd, system_err());
@@ -132,13 +125,6 @@ int dongle_ready(dongle_t d)
 		fprintf(stderr, "%s: libusb_claim_interface: %s\n",
 			odw_cmd, system_err());
 		return 0;
-	}
-
-	if ( libusb_control_transfer(d->d_handle, 0xa1, 0xfe,
-					0, 0, &zero, sizeof(zero), 1000) ) {
-		fprintf(stderr, "%s: usb_control_transfer: %s\n",
-			odw_cmd, system_err());
-		//return 0;
 	}
 
 	if ( libusb_bulk_transfer(d->d_handle, 1, buf, sizeof(buf),
