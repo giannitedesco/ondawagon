@@ -208,10 +208,12 @@ static int do_device(libusb_device *dev, struct list_head *list)
 	if ( NULL == d )
 		return 0;
 
+#if 0
 	printf("%03d.%03d = %04x:%04x -> %s\n",
 		libusb_get_bus_number(dev),
 		libusb_get_device_address(dev),
 		desc.idVendor, desc.idProduct, d->d_serial);
+#endif
 
 	list_add_tail(&d->d_list, list);
 	return 1;

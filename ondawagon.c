@@ -49,12 +49,12 @@ int main(int argc, char **argv)
 
 	odw_cmd = argv[0];
 
-	for(i = 1; i < argc; i++) {
+	for(ret = EXIT_FAILURE, i = 1; i < argc; i++) {
 		if ( !strcmp(argv[i], "--list") ) {
 			ret = do_list();
 			break;
 		}
 	}
 
-	return EXIT_SUCCESS;
+	return ret;
 }
