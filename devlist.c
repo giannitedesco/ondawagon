@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <assert.h>
+#include <string.h>
 
 #include "ondawagon.h"
 #include "dongle.h"
@@ -165,5 +166,19 @@ int dongle_list_all(dongle_t **dev, size_t *nmemb)
 
 dongle_t dongle_open(const char *serial)
 {
-	return NULL;
+	dongle_t *list;
+	size_t i, nmemb;
+	dongle_t ret;
+
+	dongle_list_all(&list, &nmemb);
+	for(ret = NULL, i = 0; i < nmemb; i++) {
+		if ( !strcmp(dongle_serial(list[i]), serial) ) {
+			ret = list[i];
+		}else{
+			dongle_close(list[i]);
+		}
+	}
+	free(list);
+
+	return ret;
 }

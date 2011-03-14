@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <errno.h>
 #include <assert.h>
 
 #include "ondawagon.h"
@@ -88,7 +89,7 @@ static int kill_kernel_driver(libusb_device_handle *h)
 	libusb_unref_device(dev);
 
 	for(ret = 1, i = 0; i < conf->bNumInterfaces; i++) {
-		if ( !libusb_detach_kernel_driver(h, i) )
+		if ( libusb_detach_kernel_driver(h, i) && errno != ENODATA )
 			ret = 0;
 	}
 
@@ -97,17 +98,62 @@ static int kill_kernel_driver(libusb_device_handle *h)
 
 int dongle_ready(dongle_t d)
 {
+	static uint8_t zero = 0;
+	static uint8_t buf[0x1f] = {
+		0x55, 0x53, 0x42, 0x43, 0x68, 0xcd, 0xb7, 0xff,
+		0x24, 0x00, 0x00, 0x00, 0x80, 0x00, 0x06, 0x85,
+		0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	};
+	int ret;
+
 	if ( d->d_state >= DONGLE_STATE_READY )
 		return 1;
 	
 	assert(d->d_state == DONGLE_STATE_ZEROCD);
-	if ( !kill_kernel_driver(d->d_handle) )
+	if ( !kill_kernel_driver(d->d_handle) ) {
+		fprintf(stderr, "%s: kill_kernel_driver: %s\n",
+			odw_cmd, system_err());
 		return 0;
+	}
 
-	if ( libusb_reset_device(d->d_handle) )
+	if ( libusb_reset_device(d->d_handle) ) {
+		fprintf(stderr, "%s: libusb_reset_device: %s\n",
+			odw_cmd, system_err());
 		return 0;
+	}
 
-	/* Now what? */
+	if ( libusb_set_configuration(d->d_handle, 1) ) {
+		fprintf(stderr, "%s: libusb_set_configuration: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+	if ( libusb_claim_interface(d->d_handle, 0) ) {
+		fprintf(stderr, "%s: libusb_claim_interface: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+
+	if ( libusb_control_transfer(d->d_handle, 0xa1, 0xfe,
+					0, 0, &zero, sizeof(zero), 1000) ) {
+		fprintf(stderr, "%s: usb_control_transfer: %s\n",
+			odw_cmd, system_err());
+		//return 0;
+	}
+
+	if ( libusb_bulk_transfer(d->d_handle, 1, buf, sizeof(buf),
+					&ret, 1000) || ret != sizeof(buf) ) {
+		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+
+	if ( libusb_reset_device(d->d_handle) ) {
+		fprintf(stderr, "%s: libusb_reset_device: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+
 	return 1;
 }
 

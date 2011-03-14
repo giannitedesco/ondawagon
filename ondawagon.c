@@ -41,7 +41,18 @@ static int do_list(void)
 
 static int do_ready(const char *ser)
 {
-	printf("do_ready() %s\n", ser);
+	dongle_t d;
+
+	d = dongle_open(ser);
+	if ( NULL == d ) {
+		fprintf(stderr, "%s: dongle: %s: not found\n", odw_cmd, ser);
+		return EXIT_FAILURE;
+	}
+
+	if ( !dongle_ready(d) ) {
+		return EXIT_FAILURE;
+	}
+
 	return EXIT_SUCCESS;
 }
 
