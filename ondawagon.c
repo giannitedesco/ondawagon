@@ -37,6 +37,20 @@ static int do_list(void)
 	return EXIT_SUCCESS;
 }
 
+static void usage(FILE *f)
+{
+	fprintf(f, "%s: ONDA 3G dongle driver\n", odw_cmd);
+	fprintf(f, "\n");
+	fprintf(f, "Copyright (c) 2011 Gianni Tedesco\n");
+	fprintf(f, "This program is free software, "
+		"distributed under the terms of the GNU GPL v3\n");
+	fprintf(f, "\n");
+	fprintf(f, "Usage:\n");
+	fprintf(f, " --list          List all dongles\n");
+	fprintf(f, " --help, -h      Display this massage\n");
+	fprintf(f, "\n");
+}
+
 const char *odw_cmd;
 int main(int argc, char **argv)
 {
@@ -54,6 +68,15 @@ int main(int argc, char **argv)
 			ret = do_list();
 			break;
 		}
+		if ( !strcmp(argv[i], "--help") ||
+			!strcmp(argv[i], "-h") ) {
+			usage(stdout);
+			ret = EXIT_SUCCESS;
+			break;
+		}
+		usage(stderr);
+		ret = EXIT_FAILURE;
+		break;
 	}
 
 	return ret;
