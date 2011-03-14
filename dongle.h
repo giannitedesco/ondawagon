@@ -8,7 +8,8 @@
 struct _dongle {
 	libusb_device_handle 	*d_handle;
 #define DONGLE_STATE_ZEROCD	0
-#define DONGLE_STATE_LIVE	1
+#define DONGLE_STATE_READY	1
+#define DONGLE_STATE_LIVE	2
 	unsigned int	 	d_state;
 	struct list_head	d_list;
 	char 			*d_serial;

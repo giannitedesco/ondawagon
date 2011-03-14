@@ -81,6 +81,44 @@ static char *get_serial(struct _dongle *d)
 	return unidecode(buf + 2, ret - 2);
 }
 
+static int kill_kernel_driver(libusb_device_handle *h)
+{
+	struct libusb_config_descriptor *conf;
+	libusb_device *dev;
+	unsigned int i;
+	int ret;
+
+	dev = libusb_get_device(h);
+	if ( libusb_get_active_config_descriptor(dev, &conf) ) {
+		libusb_unref_device(dev);
+		return 0;
+	}
+	libusb_unref_device(dev);
+
+	for(ret = 1, i = 0; i < conf->bNumInterfaces; i++) {
+		if ( !libusb_detach_kernel_driver(h, i) )
+			ret = 0;
+	}
+
+	return ret;
+}
+
+int dongle_ready(dongle_t d)
+{
+	if ( d->d_state >= DONGLE_STATE_READY )
+		return 1;
+	
+	assert(d->d_state == DONGLE_STATE_ZEROCD);
+	if ( !kill_kernel_driver(d->d_handle) )
+		return 0;
+
+	if ( libusb_reset_device(d->d_handle) )
+		return 0;
+
+	/* Now what? */
+	return 1;
+}
+
 struct _dongle *dongle__open(libusb_device *dev, unsigned int flags)
 {
 	struct _dongle *d;

@@ -75,25 +75,6 @@ static int find_device(uint16_t vendor, uint16_t product,
 	return 0;
 }
 
-#if 0
-static int kill_kernel_driver(libusb_device *dev, libusb_device_handle *h)
-{
-	struct libusb_config_descriptor *conf;
-	unsigned int i;
-	int ret;
-
-	if ( libusb_get_active_config_descriptor(dev, &conf) )
-		return 0;
-
-	for(ret = 1, i = 0; i < conf->bNumInterfaces; i++) {
-		if ( !libusb_detach_kernel_driver(h, i) )
-			ret = 0;
-	}
-
-	return ret;
-}
-#endif
-
 static int do_device(libusb_device *dev, struct list_head *list)
 {
 	struct libusb_device_descriptor desc;
