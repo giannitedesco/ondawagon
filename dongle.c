@@ -140,6 +140,7 @@ int dongle_ready(dongle_t d)
 		return 0;
 	}
 
+	d->d_state = DONGLE_STATE_READY;
 	return 1;
 }
 
