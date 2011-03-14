@@ -44,8 +44,9 @@ static void usage(FILE *f)
 	fprintf(f, "Copyright (c) 2011 Gianni Tedesco\n");
 	fprintf(f, "This program is free software, "
 		"distributed under the terms of the GNU GPL v3\n");
-	fprintf(f, "Dear goddess, we wrote this program just for you, "
-		"as an offering. Can you hear us now?\n");
+	fprintf(f, "Dear goddess we wrote this program just for you, "
+		"as an offering.\n");
+	fprintf(f, "Can you hear us now?\n");
 	fprintf(f, "\n");
 	fprintf(f, "Usage:\n");
 	fprintf(f, " --list          List all dongles\n");
