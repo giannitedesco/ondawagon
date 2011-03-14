@@ -18,22 +18,28 @@
 #include "ondawagon.h"
 #include "dongle.h"
 
-char *dongle_serial(dongle_t d)
+const char *dongle_serial(dongle_t d)
 {
 	assert(NULL != d->d_serial);
 	return d->d_serial;
 }
 
-char *dongle_label(dongle_t d)
+const char *dongle_manufacturer(dongle_t d)
 {
-	return d->d_label;
+	return d->d_mnfr;
+}
+
+const char *dongle_product(dongle_t d)
+{
+	return d->d_product;
 }
 
 void dongle_close(dongle_t d)
 {
 	libusb_close(d->d_handle);
+	free(d->d_product);
 	free(d->d_serial);
-	free(d->d_label);
+	free(d->d_mnfr);
 	list_del(&d->d_list);
 	free(d);
 }
@@ -190,9 +196,9 @@ int dongle_ready(dongle_t d)
 	return 1;
 }
 
-struct _dongle *dongle__open(libusb_device *dev, unsigned int flags,
-				uint16_t serial, uint16_t label)
+struct _dongle *dongle__open(libusb_device *dev, unsigned int flags)
 {
+	struct libusb_device_descriptor desc;
 	struct _dongle *d;
 
 	d = calloc(1, sizeof(*d));
@@ -223,21 +229,35 @@ struct _dongle *dongle__open(libusb_device *dev, unsigned int flags,
 	}while(0);
 #endif
 
-	d->d_serial = get_string(d, serial);
+	if ( libusb_get_device_descriptor(dev, &desc) )
+		goto err_close;
+
+	d->d_serial = get_string(d, desc.iSerialNumber);
 	if ( NULL == d->d_serial ) {
 		fprintf(stderr, "%s: get_serial: %s\n",
 			odw_cmd, system_err());
 		goto err_close;
 	}
 
-	d->d_label = get_string(d, label);
-	if ( NULL == d->d_label) {
+	d->d_product = get_string(d, desc.iProduct);
+	if ( NULL == d->d_product ) {
 		fprintf(stderr, "%s: get_label: %s\n",
 			odw_cmd, system_err());
-		goto err_close;
+		goto err_strings;
+	}
+
+	d->d_mnfr = get_string(d, desc.iManufacturer);
+	if ( NULL == d->d_mnfr ) {
+		fprintf(stderr, "%s: get_label: %s\n",
+			odw_cmd, system_err());
+		goto err_strings;
 	}
 
 	return d;
+err_strings:
+	free(d->d_serial);
+	free(d->d_mnfr);
+	free(d->d_product);
 err_close:
 	libusb_close(d->d_handle);
 err_free:

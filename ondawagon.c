@@ -31,10 +31,11 @@ static int do_list(void)
 	}
 
 	for(i = 0; i < nmemb; i++) {
-		printf("%s: %s: %s\n",
+		printf("%s: %s: %s / %s\n",
 			dongle_serial(list[i]),
 			dongle_needs_ready(list[i]) ? "ZEROCD" : "READY",
-			dongle_label(list[i]));
+			dongle_manufacturer(list[i]),
+			dongle_product(list[i]));
 		dongle_close(list[i]);
 	}
 

@@ -13,14 +13,14 @@ struct _dongle {
 	unsigned int	 	d_state;
 	struct list_head	d_list;
 	char 			*d_serial;
-	char			*d_label;
+	char			*d_mnfr;
+	char			*d_product;
 
 	uint8_t			d_at_in_ep;
 	uint8_t			d_at_out_ep;
 };
 
-struct _dongle *dongle__open(libusb_device *dev, unsigned int flags,
-				uint16_t serial, uint16_t label);
+struct _dongle *dongle__open(libusb_device *dev, unsigned int flags);
 int dongle__make_live(struct _dongle *d);
 
 #endif /* _DONGLE_H */

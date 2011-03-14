@@ -19,14 +19,12 @@
 static const struct devlist {
 	uint16_t vendor;
 	uint16_t product;
-	uint16_t serial;
-	uint16_t label;
 	unsigned int flags;
 }devlist[] = {
 	/* ordered by vendor then product */
-	{0x19d2, 0x0103, 4, 2, DEVLIST_ZEROCD},
-	{0x19d2, 0x1007, 3, 1, DEVLIST_ZEROCD},
-	{0x19d2, 0x1008, 3, 1, 0},
+	{0x19d2, 0x0103, DEVLIST_ZEROCD},
+	{0x19d2, 0x1007, DEVLIST_ZEROCD},
+	{0x19d2, 0x1008, 0},
 };
 
 static libusb_context *ctx;
@@ -47,9 +45,7 @@ static int do_init(void)
 
 /* binary search the known-device table */
 static int find_device(uint16_t vendor, uint16_t product,
-				unsigned int *flags,
-				uint16_t *serial,
-				uint16_t *label)
+				unsigned int *flags)
 {
 	const struct devlist *d = devlist;
 	unsigned int n = sizeof(devlist) / sizeof(*devlist);
@@ -73,8 +69,6 @@ static int find_device(uint16_t vendor, uint16_t product,
 			n = n - (i + 1U);
 		}else{
 			*flags = d[i].flags;
-			*serial = d[i].serial;
-			*label = d[i].label;
 			return 1;
 		}
 	}
@@ -92,11 +86,10 @@ static int do_device(libusb_device *dev, struct list_head *list)
 	if ( libusb_get_device_descriptor(dev, &desc) )
 		return 0;
 
-	if ( !find_device(desc.idVendor, desc.idProduct,
-				&flags, &serial, &label) )
+	if ( !find_device(desc.idVendor, desc.idProduct, &flags) )
 		return 1; /* we don't care about this device */
 
-	d = dongle__open(dev, flags, serial, label);
+	d = dongle__open(dev, flags);
 	if ( NULL == d )
 		return 0;
 
