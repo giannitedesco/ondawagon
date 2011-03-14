@@ -21,6 +21,11 @@ char *dongle_serial(dongle_t d)
 	return d->d_serial;
 }
 
+char *dongle_label(dongle_t d)
+{
+	return d->d_label;
+}
+
 void dongle_close(dongle_t d)
 {
 	libusb_close(d->d_handle);
@@ -50,26 +55,13 @@ static char *unidecode(const uint8_t *in, size_t len)
 	return out;
 }
 
-static char *get_serial(struct _dongle *d)
+static char *get_string(struct _dongle *d, unsigned int idx)
 {
-	struct {
-		uint8_t str;
-		uint8_t type;
-		uint8_t lang_lo;
-		uint8_t lang_hi;
-	}__attribute__((packed)) desc;
 	uint8_t buf[256];
 	int ret;
 
-	ret = libusb_get_string_descriptor(d->d_handle, 0, 0,
-					(uint8_t *)&desc, sizeof(desc));
-	if ( ret != sizeof(desc) )
-		return NULL;
-	if ( desc.type != LIBUSB_DT_STRING )
-		return NULL;
-
-	ret = libusb_get_string_descriptor(d->d_handle, desc.str,
-					(desc.lang_hi << 8) | desc.lang_lo,
+	ret = libusb_get_string_descriptor(d->d_handle, idx,
+					0x0409,
 					buf, sizeof(buf));
 	if ( ret <= 2 )
 		return NULL;
@@ -119,7 +111,8 @@ int dongle_ready(dongle_t d)
 	return 1;
 }
 
-struct _dongle *dongle__open(libusb_device *dev, unsigned int flags)
+struct _dongle *dongle__open(libusb_device *dev, unsigned int flags,
+				uint16_t serial, uint16_t label)
 {
 	struct _dongle *d;
 
@@ -144,9 +137,28 @@ struct _dongle *dongle__open(libusb_device *dev, unsigned int flags)
 		d->d_state = DONGLE_STATE_LIVE;
 	}
 
-	d->d_serial = get_serial(d);
-	if ( NULL == d->d_serial )
+#if 0
+	do {
+		unsigned int i;
+		for(i = 0; i < 256; i++) {
+			printf("%u: %s\n", i, get_string(d, i));
+		}
+	}while(0);
+#endif
+
+	d->d_serial = get_string(d, serial);
+	if ( NULL == d->d_serial ) {
+		fprintf(stderr, "%s: get_serial: %s\n",
+			odw_cmd, system_err());
 		goto err_close;
+	}
+
+	d->d_label = get_string(d, label);
+	if ( NULL == d->d_label) {
+		fprintf(stderr, "%s: get_label: %s\n",
+			odw_cmd, system_err());
+		goto err_close;
+	}
 
 	return d;
 err_close:

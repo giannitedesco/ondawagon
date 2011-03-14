@@ -28,12 +28,20 @@ static int do_list(void)
 	}
 
 	for(i = 0; i < nmemb; i++) {
-		printf("%s\n", dongle_serial(list[i]));
+		printf("%s %s\n",
+			dongle_serial(list[i]),
+			dongle_label(list[i]));
 		dongle_close(list[i]);
 	}
 
 	free(list);
 
+	return EXIT_SUCCESS;
+}
+
+static int do_ready(const char *ser)
+{
+	printf("do_ready() %s\n", ser);
 	return EXIT_SUCCESS;
 }
 
@@ -69,6 +77,11 @@ int main(int argc, char **argv)
 	for(ret = EXIT_FAILURE, i = 1; i < argc; i++) {
 		if ( !strcmp(argv[i], "--list") ) {
 			ret = do_list();
+			break;
+		}
+		if ( !strcmp(argv[i], "--ready") && i + 1 < argc ) {
+			const char *ser = argv[i + 1];
+			ret = do_ready(ser);
 			break;
 		}
 		if ( !strcmp(argv[i], "--help") ||

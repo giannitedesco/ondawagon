@@ -13,8 +13,10 @@ struct _dongle {
 	unsigned int	 	d_state;
 	struct list_head	d_list;
 	char 			*d_serial;
+	char			*d_label;
 };
 
-struct _dongle *dongle__open(libusb_device *dev, unsigned int flags);
+struct _dongle *dongle__open(libusb_device *dev, unsigned int flags,
+				uint16_t serial, uint16_t label);
 
 #endif /* _DONGLE_H */
