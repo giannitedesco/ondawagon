@@ -153,23 +153,25 @@ static void hex_dump(const uint8_t *ptr, size_t len, size_t llen)
 static int do_init_cycle(struct _dongle *d, const uint8_t *ptr, size_t len)
 {
 	uint8_t buf[4096];
-	int ret;
+	int ret, rc;
 
 	printf("--- Init Cycle ---\n");
 
-	if ( libusb_control_transfer(d->d_handle, 0x21, 0x0, 0, 4,
-					(uint8_t *)ptr, len, 1000) && errno ) {
-		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
+	ret = libusb_control_transfer(d->d_handle, 0x21, 0x0, 0, 4,
+					(uint8_t *)ptr, len, 1000);
+	if ( ret < 0 ) {
+		fprintf(stderr, "%s: libusb_control_transfer_x: %s\n",
 			odw_cmd, system_err());
 		return 0;
 	}
 
 	do {
 		usleep(1000000);
-		ret = 0;
-		if ( !libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 6,
+		rc = libusb_bulk_transfer(d->d_handle,
+						LIBUSB_ENDPOINT_IN | 6,
 						buf, 8,
-						&ret, 10000) && errno ) {
+						&ret, 10000);
+		if ( rc < 0 ) {
 			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
 				odw_cmd, system_err());
 			return 0;
@@ -181,7 +183,7 @@ static int do_init_cycle(struct _dongle *d, const uint8_t *ptr, size_t len)
 	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x1, 0, 4,
 					buf, sizeof(buf), 1000);
 	if ( ret < 0 ) {
-		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
+		fprintf(stderr, "%s: libusb_control_transfer_x: %s\n",
 			odw_cmd, system_err());
 		return 0;
 	}
@@ -198,27 +200,29 @@ static int init_stuff(struct _dongle *d)
 	uint8_t msg_3[16] = {1, 0xf, 0, 0, 0, 0, 0, 2,
 				0x22, 0, 4, 0, 1, 1, 0, 0x2};
 	uint8_t msg_4[13] = {1, 0xc, 0, 0, 2, 1, 0, 1,
-				0, 0x21, 0, 0, 0};
+				0, 0x21, 0, 0, 0}; /* qualcomm inc */
 	uint8_t msg_5[13] = {1, 0xc, 0, 0, 2, 1, 0, 2,
 				0, 0x24, 0, 0, 0};
 	uint8_t msg_6[13] = {1, 0xc, 0, 0, 2, 1, 0, 3,
-				0, 0x25, 0, 0, 0};
+				0, 0x25, 0, 0, 0}; /* returns IMEI */
 	uint8_t msg_7[17] = {1, 0x10, 0, 0, 0, 0, 0, 3,
 				0x23, 0, 5, 0, 1, 2, 0, 2, 1};
 	uint8_t msg_8[16] = {1, 0xf, 0, 0, 0, 0, 0, 4,
 				0x22, 0, 4, 0, 1, 1, 0, 1};
 	uint8_t msg_9[16] = {1, 0xf, 0, 0, 0, 0, 0, 5,
 				0x20, 0, 4, 0, 1, 1, 0, 0};
+	uint8_t msg_f[7] = {0, 0xc2, 1, 0, 0, 0, 8};
 	uint8_t buf[246];
-	int ret;
+	int ret, rc, i;
 
-	if ( libusb_control_transfer(d->d_handle, 0x21, 0x02, 1, 4,
-					msg_1, sizeof(msg_1), 1000) && errno ) {
+	ret = libusb_control_transfer(d->d_handle, 0x21, 0x02, 1, 4,
+					msg_1, sizeof(msg_1), 1000);
+	if ( ret < 0 ) {
 		fprintf(stderr, "%s: libusb_control_transfer_1: %s\n",
 			odw_cmd, system_err());
-		return 0;
+		//return 0;
 	}
-	
+
 	if ( !do_init_cycle(d, msg_2, sizeof(msg_2)) )
 		return 0;
 	if ( !do_init_cycle(d, msg_3, sizeof(msg_3)) )
@@ -236,19 +240,88 @@ static int init_stuff(struct _dongle *d)
 	if ( !do_init_cycle(d, msg_9, sizeof(msg_9)) )
 		return 0;
 
-	if ( NULL == get_string(d, 3) )
-		return 0;
-
-	usleep(1000000);
+	printf("--- SHould return zero ---\n");
 	ret = libusb_control_transfer(d->d_handle, 0xa1, 0xfe, 0, 5,
 					buf, 1, 1000);
 	if ( ret < 0 ) {
-		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
+		fprintf(stderr, "%s: libusb_control_transfer_final: %s\n",
 			odw_cmd, system_err());
 		//return 0;
 	}
 	hex_dump(buf, ret, 16);
 
+	printf("--- Stuff ---\n");
+	for(i = 0; i < 3; i++) {
+		ret = libusb_control_transfer(d->d_handle, 0xa1, 0x21, 0, 3,
+						buf, 7, 1000);
+		if ( ret < 0 ) {
+			fprintf(stderr, "%s: libusb_control_"
+				"transfer_weird: %s\n",
+				odw_cmd, system_err());
+			//return 0;
+		}
+		hex_dump(buf, ret, 16);
+	}
+
+	ret = libusb_control_transfer(d->d_handle, 0x21, 0x20, 0, 3,
+					msg_f, sizeof(msg_f), 1000);
+	if ( ret < 0 ) {
+		fprintf(stderr, "%s: libusb_control_transfer_1: %s\n",
+			odw_cmd, system_err());
+		//return 0;
+	}
+
+	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x21, 0, 3,
+					buf, 7, 1000);
+	if ( ret < 0 ) {
+		fprintf(stderr, "%s: libusb_control_"
+			"transfer_weird: %s\n",
+			odw_cmd, system_err());
+		//return 0;
+	}
+	hex_dump(buf, ret, 16);
+
+	ret = libusb_control_transfer(d->d_handle, 0x21, 0x20, 0, 3,
+					msg_f, sizeof(msg_f), 1000);
+	if ( ret < 0 ) {
+		fprintf(stderr, "%s: libusb_control_transfer_1: %s\n",
+			odw_cmd, system_err());
+		//return 0;
+	}
+
+	printf("--- Switching to AT mode? ---\n");
+	rc = libusb_bulk_transfer(d->d_handle, 4,
+					(uint8_t *)"AT%MODE?\n", 9, &ret,
+					1000);
+	if ( rc < 0 || (size_t)ret != 9 ) {
+		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
+			odw_cmd, system_err());
+		//return 0;
+	}
+
+	rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 5,
+					buf, sizeof(buf),
+					&ret, 1000);
+	if ( rc < 0 ) {
+		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
+			odw_cmd, system_err());
+		//return 0;
+	}
+	hex_dump(buf, ret, 16);
+
+	do {
+		usleep(1000000);
+		rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 5,
+						buf, sizeof(buf),
+						&ret, 1000);
+		if ( rc < 0 ) {
+			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
+				odw_cmd, system_err());
+			//return 0;
+			continue;
+		}
+		hex_dump(buf, ret, 16);
+	}while(ret != 9);
 	return 1;
 }
 
@@ -274,12 +347,6 @@ int dongle__make_live(struct _dongle *d)
 
 	/* Claim all vendor specific interfaces */
 	for(ret = 1, i = 0; i < conf->bNumInterfaces; i++) {
-		if ( conf->interface[i].altsetting[0].bInterfaceClass != 0xff )
-			continue;
-		if ( conf->interface[i].altsetting[0].bInterfaceSubClass != 0xff)
-			continue;
-		if ( conf->interface[i].altsetting[0].bInterfaceProtocol != 0xff )
-			continue;
 		libusb_detach_kernel_driver(d->d_handle, i);
 		if ( libusb_claim_interface(d->d_handle, i) ) {
 			fprintf(stderr, "%s: libusb_claim_interface: %s\n",
@@ -306,7 +373,7 @@ int dongle_ready(dongle_t d)
 		0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	};
-	int ret;
+	int ret, rc;
 
 	if ( d->d_state != DONGLE_STATE_ZEROCD )
 		return 1;
@@ -329,9 +396,10 @@ int dongle_ready(dongle_t d)
 		return 0;
 	}
 
-	if ( libusb_bulk_transfer(d->d_handle, 1,
+	rc = libusb_bulk_transfer(d->d_handle, 1,
 				(uint8_t *)buf, sizeof(buf),
-				&ret, 1000) || ret != sizeof(buf) ) {
+				&ret, 1000);
+	if ( rc < 0 || (size_t)ret != sizeof(buf) ) {
 		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
 			odw_cmd, system_err());
 		return 0;
@@ -418,32 +486,37 @@ err:
 
 int dongle_atcmd(dongle_t d, const char *cmd)
 {
-	uint8_t buf[256];
+	uint8_t buf[4096];
 	size_t cmd_len;
-	int ret;
+	int ret, rc;
 
 	if ( !dongle__make_live(d) )
 		return 0;
 
 	cmd_len = strlen(cmd);
 
-	if ( libusb_bulk_transfer(d->d_handle, 2,
+	//printf("ATCMD\n");
+	//hex_dump((const uint8_t *)cmd, cmd_len, 16);
+	rc = libusb_bulk_transfer(d->d_handle, 2,
 					(uint8_t *)cmd, cmd_len, &ret,
-					1000) || (size_t)ret != cmd_len ) {
+					1000);
+	if ( rc < 0 || (size_t)ret != cmd_len ) {
 		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
 			odw_cmd, system_err());
 		return 0;
 	}
 
-	if ( libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 2,
+	rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 2,
 					buf, sizeof(buf),
-					&ret, 1000) || ret <= 0 ) {
+					&ret, 1000);
+	if ( rc < 0 ) {
 		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
 			odw_cmd, system_err());
 		return 0;
 	}
 
 	printf("<<< %.*s\n", ret, buf);
+	//hex_dump(buf, ret, 16);
 
 	return 1;
 }
