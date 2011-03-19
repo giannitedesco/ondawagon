@@ -150,6 +150,46 @@ static void hex_dump(const uint8_t *ptr, size_t len, size_t llen)
 	_hex_dumpf(stdout, ptr, len, llen);
 }
 
+static int do_init_cycle(struct _dongle *d, const uint8_t *ptr, size_t len)
+{
+	uint8_t buf[4096];
+	int ret;
+
+	printf("--- Init Cycle ---\n");
+
+	if ( libusb_control_transfer(d->d_handle, 0x21, 0x0, 0, 4,
+					(uint8_t *)ptr, len, 1000) && errno ) {
+		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+
+	do {
+		usleep(1000000);
+		ret = 0;
+		if ( !libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 6,
+						buf, 8,
+						&ret, 10000) && errno ) {
+			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
+				odw_cmd, system_err());
+			return 0;
+		}
+		printf("Got %d bytes\n", ret);
+		hex_dump(buf, ret, 16);
+	}while(ret != 8);
+
+	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x1, 0, 4,
+					buf, sizeof(buf), 1000);
+	if ( ret < 0 ) {
+		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+	hex_dump(buf, ret, 16);
+
+	return 1;
+}
+
 static int init_stuff(struct _dongle *d)
 {
 	uint8_t msg_1[2] = { 0, 0 };
@@ -159,7 +199,17 @@ static int init_stuff(struct _dongle *d)
 				0x22, 0, 4, 0, 1, 1, 0, 0x2};
 	uint8_t msg_4[13] = {1, 0xc, 0, 0, 2, 1, 0, 1,
 				0, 0x21, 0, 0, 0};
-	uint8_t buf[4096];
+	uint8_t msg_5[13] = {1, 0xc, 0, 0, 2, 1, 0, 2,
+				0, 0x24, 0, 0, 0};
+	uint8_t msg_6[13] = {1, 0xc, 0, 0, 2, 1, 0, 3,
+				0, 0x25, 0, 0, 0};
+	uint8_t msg_7[17] = {1, 0x10, 0, 0, 0, 0, 0, 3,
+				0x23, 0, 5, 0, 1, 2, 0, 2, 1};
+	uint8_t msg_8[16] = {1, 0xf, 0, 0, 0, 0, 0, 4,
+				0x22, 0, 4, 0, 1, 1, 0, 1};
+	uint8_t msg_9[16] = {1, 0xf, 0, 0, 0, 0, 0, 5,
+				0x20, 0, 4, 0, 1, 1, 0, 0};
+	uint8_t buf[246];
 	int ret;
 
 	if ( libusb_control_transfer(d->d_handle, 0x21, 0x02, 1, 4,
@@ -168,93 +218,34 @@ static int init_stuff(struct _dongle *d)
 			odw_cmd, system_err());
 		return 0;
 	}
-	if ( libusb_control_transfer(d->d_handle, 0x21, 0x0, 0, 4,
-					msg_2, sizeof(msg_2), 1000) && errno ) {
-		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
-			odw_cmd, system_err());
+	
+	if ( !do_init_cycle(d, msg_2, sizeof(msg_2)) )
 		return 0;
-	}
+	if ( !do_init_cycle(d, msg_3, sizeof(msg_3)) )
+		return 0;
+	if ( !do_init_cycle(d, msg_4, sizeof(msg_4)) )
+		return 0;
+	if ( !do_init_cycle(d, msg_5, sizeof(msg_5)) )
+		return 0;
+	if ( !do_init_cycle(d, msg_6, sizeof(msg_6)) )
+		return 0;
+	if ( !do_init_cycle(d, msg_7, sizeof(msg_7)) )
+		return 0;
+	if ( !do_init_cycle(d, msg_8, sizeof(msg_8)) )
+		return 0;
+	if ( !do_init_cycle(d, msg_9, sizeof(msg_9)) )
+		return 0;
 
-	do {
-		usleep(1000000);
-		ret = 0;
-		if ( !libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 6,
-						buf, 8,
-						&ret, 10000) && errno ) {
-			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
-				odw_cmd, system_err());
-			return 0;
-		}
-		printf("Got %d bytes\n", ret);
-		hex_dump(buf, ret, 16);
-	}while(ret != 8);
+	if ( NULL == get_string(d, 3) )
+		return 0;
 
-	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x1, 0, 4,
-					buf, sizeof(buf), 1000);
+	usleep(1000000);
+	ret = libusb_control_transfer(d->d_handle, 0xa1, 0xfe, 0, 5,
+					buf, 1, 1000);
 	if ( ret < 0 ) {
 		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
 			odw_cmd, system_err());
-		return 0;
-	}
-	hex_dump(buf, ret, 16);
-
-	if ( libusb_control_transfer(d->d_handle, 0x21, 0x0, 0, 4,
-					msg_3, sizeof(msg_3), 1000) && errno ) {
-		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
-			odw_cmd, system_err());
-		return 0;
-	}
-
-	do {
-		usleep(1000000);
-		ret = 0;
-		if ( !libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 6,
-						buf, 8,
-						&ret, 10000) && errno ) {
-			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
-				odw_cmd, system_err());
-			return 0;
-		}
-		printf("Got %d bytes\n", ret);
-		hex_dump(buf, ret, 16);
-	}while(ret != 8);
-
-	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x1, 0, 4,
-					buf, sizeof(buf), 1000);
-	if ( ret < 0 ) {
-		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
-			odw_cmd, system_err());
-		return 0;
-	}
-	hex_dump(buf, ret, 16);
-
-	if ( libusb_control_transfer(d->d_handle, 0x21, 0x0, 0, 4,
-					msg_4, sizeof(msg_4), 1000) && errno ) {
-		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
-			odw_cmd, system_err());
-		return 0;
-	}
-
-	do {
-		usleep(1000000);
-		ret = 0;
-		if ( !libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 6,
-						buf, 8,
-						&ret, 10000) && errno ) {
-			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
-				odw_cmd, system_err());
-			return 0;
-		}
-		printf("Got %d bytes\n", ret);
-		hex_dump(buf, ret, 16);
-	}while(ret != 8);
-
-	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x1, 0, 4,
-					buf, sizeof(buf), 1000);
-	if ( ret < 0 ) {
-		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
-			odw_cmd, system_err());
-		return 0;
+		//return 0;
 	}
 	hex_dump(buf, ret, 16);
 
