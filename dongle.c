@@ -109,12 +109,169 @@ int dongle_needs_ready(dongle_t d)
 	return d->d_state == DONGLE_STATE_ZEROCD;
 }
 
+static void _hex_dumpf(FILE *f, const uint8_t *tmp, size_t len, size_t llen)
+{
+	size_t i, j;
+	size_t line;
+
+	if ( NULL == f || 0 == len )
+		return;
+
+	for(j = 0; j < len; j += line, tmp += line) {
+		if ( j + llen > len ) {
+			line = len - j;
+		}else{
+			line = llen;
+		}
+
+		fprintf(f, " | %05x : ", j);
+
+		for(i = 0; i < line; i++) {
+			if ( isprint(tmp[i]) ) {
+				fprintf(f, "%c", tmp[i]);
+			}else{
+				fprintf(f, ".");
+			}
+		}
+
+		for(; i < llen; i++)
+			fprintf(f, " ");
+
+		for(i = 0; i < line; i++)
+			fprintf(f, " %02x", tmp[i]);
+
+		fprintf(f, "\n");
+	}
+	fprintf(f, "\n");
+}
+
+static void hex_dump(const uint8_t *ptr, size_t len, size_t llen)
+{
+	_hex_dumpf(stdout, ptr, len, llen);
+}
+
+static int init_stuff(struct _dongle *d)
+{
+	uint8_t msg_1[2] = { 0, 0 };
+	uint8_t msg_2[16] = {1, 0xf, 0, 0, 0, 0, 0, 1,
+				0x21, 0, 4, 0, 1, 1, 0, 0xff};
+	uint8_t msg_3[16] = {1, 0xf, 0, 0, 0, 0, 0, 2,
+				0x22, 0, 4, 0, 1, 1, 0, 0x2};
+	uint8_t msg_4[13] = {1, 0xc, 0, 0, 2, 1, 0, 1,
+				0, 0x21, 0, 0, 0};
+	uint8_t buf[4096];
+	int ret;
+
+	if ( libusb_control_transfer(d->d_handle, 0x21, 0x02, 1, 4,
+					msg_1, sizeof(msg_1), 1000) && errno ) {
+		fprintf(stderr, "%s: libusb_control_transfer_1: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+	if ( libusb_control_transfer(d->d_handle, 0x21, 0x0, 0, 4,
+					msg_2, sizeof(msg_2), 1000) && errno ) {
+		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+
+	do {
+		usleep(1000000);
+		ret = 0;
+		if ( !libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 6,
+						buf, 8,
+						&ret, 10000) && errno ) {
+			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
+				odw_cmd, system_err());
+			return 0;
+		}
+		printf("Got %d bytes\n", ret);
+		hex_dump(buf, ret, 16);
+	}while(ret != 8);
+
+	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x1, 0, 4,
+					buf, sizeof(buf), 1000);
+	if ( ret < 0 ) {
+		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+	hex_dump(buf, ret, 16);
+
+	if ( libusb_control_transfer(d->d_handle, 0x21, 0x0, 0, 4,
+					msg_3, sizeof(msg_3), 1000) && errno ) {
+		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+
+	do {
+		usleep(1000000);
+		ret = 0;
+		if ( !libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 6,
+						buf, 8,
+						&ret, 10000) && errno ) {
+			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
+				odw_cmd, system_err());
+			return 0;
+		}
+		printf("Got %d bytes\n", ret);
+		hex_dump(buf, ret, 16);
+	}while(ret != 8);
+
+	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x1, 0, 4,
+					buf, sizeof(buf), 1000);
+	if ( ret < 0 ) {
+		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+	hex_dump(buf, ret, 16);
+
+	if ( libusb_control_transfer(d->d_handle, 0x21, 0x0, 0, 4,
+					msg_4, sizeof(msg_4), 1000) && errno ) {
+		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+
+	do {
+		usleep(1000000);
+		ret = 0;
+		if ( !libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 6,
+						buf, 8,
+						&ret, 10000) && errno ) {
+			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
+				odw_cmd, system_err());
+			return 0;
+		}
+		printf("Got %d bytes\n", ret);
+		hex_dump(buf, ret, 16);
+	}while(ret != 8);
+
+	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x1, 0, 4,
+					buf, sizeof(buf), 1000);
+	if ( ret < 0 ) {
+		fprintf(stderr, "%s: libusb_control_transfer_2: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+	hex_dump(buf, ret, 16);
+
+	return 1;
+}
+
 int dongle__make_live(struct _dongle *d)
 {
 	struct libusb_config_descriptor *conf;
 	libusb_device *dev;
 	unsigned int i;
 	int ret;
+
+	if ( d->d_state == DONGLE_STATE_ZEROCD ) {
+		fprintf(stderr, "%s: Device needs to be made ready\n", odw_cmd);
+		return 0;
+	}
 
 	if ( d->d_state >= DONGLE_STATE_LIVE )
 		return 1;
@@ -145,6 +302,8 @@ int dongle__make_live(struct _dongle *d)
 
 	d->d_state = DONGLE_STATE_LIVE;
 	libusb_free_config_descriptor(conf);
+
+	init_stuff(d);
 	return 1;
 }
 
@@ -175,7 +334,7 @@ int dongle_ready(dongle_t d)
 	}
 	if ( libusb_claim_interface(d->d_handle, 0) ) {
 		fprintf(stderr, "%s: libusb_claim_interface: %s\n",
-			odw_cmd, system_err());
+		odw_cmd, system_err());
 		return 0;
 	}
 
@@ -294,5 +453,6 @@ int dongle_atcmd(dongle_t d, const char *cmd)
 	}
 
 	printf("<<< %.*s\n", ret, buf);
+
 	return 1;
 }

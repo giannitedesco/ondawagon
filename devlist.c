@@ -79,7 +79,6 @@ static int find_device(uint16_t vendor, uint16_t product,
 static int do_device(libusb_device *dev, struct list_head *list)
 {
 	struct libusb_device_descriptor desc;
-	uint16_t serial, label;
 	unsigned int flags;
 	struct _dongle *d;
 
@@ -89,16 +88,16 @@ static int do_device(libusb_device *dev, struct list_head *list)
 	if ( !find_device(desc.idVendor, desc.idProduct, &flags) )
 		return 1; /* we don't care about this device */
 
+#if 0
+	printf("%03d.%03d = %04x:%04x\n",
+		libusb_get_bus_number(dev),
+		libusb_get_device_address(dev),
+		desc.idVendor, desc.idProduct);
+#endif
+
 	d = dongle__open(dev, flags);
 	if ( NULL == d )
 		return 0;
-
-#if 0
-	printf("%03d.%03d = %04x:%04x -> %s\n",
-		libusb_get_bus_number(dev),
-		libusb_get_device_address(dev),
-		desc.idVendor, desc.idProduct, d->d_serial);
-#endif
 
 	list_add_tail(&d->d_list, list);
 	return 1;
@@ -148,6 +147,7 @@ static int do_all_devices(dongle_t **dongles, size_t *nmemb)
 	}
 
 	*nmemb = n;
+
 out:
 	return ret;
 }
