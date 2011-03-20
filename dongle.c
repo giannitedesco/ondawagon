@@ -83,11 +83,11 @@ static char *get_string(struct _dongle *d, unsigned int idx)
 	return unidecode(buf + 2, ret - 2);
 }
 
-static int kill_kernel_driver(libusb_device_handle *h)
+static int kill_kernel_driver(libusb_device_handle *h, int kill_msd)
 {
 	struct libusb_config_descriptor *conf;
 	libusb_device *dev;
-	unsigned int i;
+	unsigned int i, num;
 	int ret;
 
 	dev = libusb_get_device(h);
@@ -95,7 +95,9 @@ static int kill_kernel_driver(libusb_device_handle *h)
 		return 0;
 	}
 
-	for(ret = 1, i = 0; i < conf->bNumInterfaces; i++) {
+	num = conf->bNumInterfaces - ((kill_msd) ? 0 : 1);
+
+	for(ret = 1, i = 0; i < num; i++) {
 		if ( libusb_detach_kernel_driver(h, i) && errno != ENODATA )
 			ret = 0;
 	}
@@ -261,7 +263,7 @@ static int set_at_mode(struct _dongle *d)
 		usleep(1000000);
 		rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 5,
 						buf, sizeof(buf),
-						&ret, ~0);
+						&ret, 5000);
 		if ( rc < 0 ) {
 			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
 				odw_cmd, system_err());
@@ -321,13 +323,13 @@ static int init_stuff(struct _dongle *d)
 	if ( !do_init_cycle(d, msg_9, sizeof(msg_9)) )
 		return 0;
 
-	printf("--- SHould return zero ---\n");
+	printf("--- Should return zero ---\n");
 	ret = libusb_control_transfer(d->d_handle, 0xa1, 0xfe, 0, 5,
 					buf, 1, 1000);
 	if ( ret < 0 ) {
 		fprintf(stderr, "%s: libusb_control_transfer_final: %s\n",
 			odw_cmd, system_err());
-		//return 0;
+		return 0;
 	}
 	hex_dump(buf, ret, 16);
 
@@ -352,30 +354,26 @@ int dongle__make_live(struct _dongle *d)
 	if ( d->d_state >= DONGLE_STATE_LIVE )
 		return 1;
 
+	if ( !kill_kernel_driver(d->d_handle, 0) )
+		return 0;
+
+	if ( libusb_set_configuration(d->d_handle, 1) ) {
+		fprintf(stderr, "%s: libusb_set_configuration: %s\n",
+			odw_cmd, system_err());
+	}
+
 	dev = libusb_get_device(d->d_handle);
 	if ( libusb_get_active_config_descriptor(dev, &conf) ) {
 		return 0;
 	}
 
-	/* Kick off all kernel drivers */
-	for(ret = 1, i = 0; i < conf->bNumInterfaces; i++) {
-		libusb_detach_kernel_driver(d->d_handle, i);
-	}
-
-	libusb_free_config_descriptor(conf);
-
-	if ( libusb_set_configuration(d->d_handle, 1) ) {
-		fprintf(stderr, "%s: libusb_set_configuration: %s\n",
-			odw_cmd, system_err());
-		return 0;
-	}
-
-	if ( libusb_get_active_config_descriptor(dev, &conf) ) {
+	if ( conf->bConfigurationValue != 1 ) {
+		fprintf(stderr, "%s: unable to use config #1\n", odw_cmd);
 		return 0;
 	}
 
 	/* Claim all interfaces */
-	for(ret = 1, i = 0; i < conf->bNumInterfaces; i++) {
+	for(ret = 1, i = 0; i < conf->bNumInterfaces - 1U; i++) {
 		libusb_detach_kernel_driver(d->d_handle, i);
 		if ( libusb_claim_interface(d->d_handle, i) ) {
 			fprintf(stderr, "%s: libusb_claim_interface: %s\n",
@@ -408,7 +406,7 @@ int dongle_ready(dongle_t d)
 		return 1;
 
 	printf("%s; Mode-switching %s\n", odw_cmd, d->d_serial);
-	if ( !kill_kernel_driver(d->d_handle) ) {
+	if ( !kill_kernel_driver(d->d_handle, 1) ) {
 		fprintf(stderr, "%s: kill_kernel_driver: %s\n",
 			odw_cmd, system_err());
 		return 0;
@@ -468,15 +466,6 @@ struct _dongle *dongle__open(libusb_device *dev, unsigned int flags)
 	}else{
 		d->d_state = DONGLE_STATE_READY;
 	}
-
-#if 0
-	do {
-		unsigned int i;
-		for(i = 0; i < 256; i++) {
-			printf("%u: %s\n", i, get_string(d, i));
-		}
-	}while(0);
-#endif
 
 	if ( libusb_get_device_descriptor(dev, &desc) )
 		goto err_close;
