@@ -278,7 +278,7 @@ static int set_at_mode(struct _dongle *d)
 
 static int init_stuff(struct _dongle *d)
 {
-#if 1
+#if 0
 	uint8_t buf[4096];
 	int ret, rc;
 	rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 4,
@@ -293,7 +293,7 @@ static int init_stuff(struct _dongle *d)
 	hex_dump(buf, ret, 16);
 
 	return 1;
-#else
+#endif
 	const uint8_t msg_1[2] = { 0, 0 };
 	const uint8_t msg_2[16] = {1, 0xf, 0, 0, 0, 0, 0, 1,
 				0x21, 0, 4, 0, 1, 1, 0, 0xff};
@@ -353,7 +353,6 @@ static int init_stuff(struct _dongle *d)
 		return 0;
 
 	return 1;
-#endif
 }
 
 int dongle__make_live(struct _dongle *d)
@@ -374,10 +373,12 @@ int dongle__make_live(struct _dongle *d)
 	if ( !kill_kernel_driver(d->d_handle, 0) )
 		return 0;
 
+#if 0
 	if ( libusb_set_configuration(d->d_handle, 1) ) {
 		fprintf(stderr, "%s: libusb_set_configuration: %s\n",
 			odw_cmd, system_err());
 	}
+#endif
 
 	dev = libusb_get_device(d->d_handle);
 	if ( libusb_get_active_config_descriptor(dev, &conf) ) {
@@ -404,7 +405,7 @@ int dongle__make_live(struct _dongle *d)
 
 	libusb_free_config_descriptor(conf);
 
-	init_stuff(d);
+	//init_stuff(d);
 	d->d_state = DONGLE_STATE_LIVE;
 	return 1;
 }
@@ -521,16 +522,17 @@ err:
 	return NULL;
 }
 
-static int cmd_trancieve(dongle_t d, const uint8_t *cmd, size_t cmd_len)
+int dongle_atcmd(dongle_t d, const char *cmd)
 {
 	uint8_t buf[4096];
-	int ret, rc;
+	size_t cmd_len = strlen(cmd);
+	int ret, rc, i;
 
 	if ( !dongle__make_live(d) )
 		return 0;
 
-	printf("ATCMD %d bytes\n", cmd_len);
-	hex_dump(cmd, cmd_len, 16);
+	//printf("ATCMD %d bytes\n", cmd_len);
+	//hex_dump(cmd, cmd_len, 16);
 	rc = libusb_bulk_transfer(d->d_handle, 2,
 					(uint8_t *)cmd, cmd_len, &ret,
 					1000);
@@ -540,42 +542,21 @@ static int cmd_trancieve(dongle_t d, const uint8_t *cmd, size_t cmd_len)
 		return 0;
 	}
 
-	rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 2,
-					buf, sizeof(buf),
-					&ret, 3000);
-	if ( rc < 0 ) {
-		fprintf(stderr, "%s: libusb_bulk_transfer: %d\n",
-			odw_cmd, rc);
-		return 0;
-	}
+	i = 0;
+	do {
+		rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 2,
+						buf, sizeof(buf),
+						&ret, 3000);
+		if ( rc < 0 ) {
+			fprintf(stderr, "%s: libusb_bulk_transfer: %d\n",
+				odw_cmd, rc);
+			continue;
+		}
 
-	printf("<<< %.*s\n", ret, buf);
-	//hex_dump(buf, ret, 16);
+		printf("<<< %.*s\n", ret, buf);
+		//hex_dump(buf, ret, 16);
+		i++;
+	}while(i < 2);
 
-
-	return 1;
-}
-
-int dongle_atcmd(dongle_t d, const char *cmd)
-{
-	size_t len = strlen(cmd);
-	char buf[4096];
-	int ret, rc;
-	size_t i;
-
-	for(i = 0; i < len; i++) {
-		cmd_trancieve(d, (uint8_t *)cmd + i, 1);
-	}
-
-	rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 2,
-					buf, sizeof(buf),
-					&ret, 3000);
-	if ( rc < 0 ) {
-		fprintf(stderr, "%s: libusb_bulk_transfer: %d\n",
-			odw_cmd, rc);
-		return 0;
-	}
-
-	printf("<<< %.*s\n", ret, buf);
 	return 1;
 }
