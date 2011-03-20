@@ -92,10 +92,12 @@ static int do_shell(const char *ser)
 
 	do_init_history(".ondawagon");
 
-	dongle_atcmd(d, "AT\n0\n");
+	//dongle_atcmd(d, "AT\n0\n");
 	while( (inp = readline("onda$ ") ) ) {
+		char buf[strlen(inp) + 1 + 2];
+		snprintf(buf, sizeof(buf), "%s\n", inp);
 		do_add_history(inp);
-		dongle_atcmd(d, inp);
+		dongle_atcmd(d, buf);
 	}
 
 	rl_free_line_state();

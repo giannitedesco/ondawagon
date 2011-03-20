@@ -278,6 +278,22 @@ static int set_at_mode(struct _dongle *d)
 
 static int init_stuff(struct _dongle *d)
 {
+#if 1
+	uint8_t buf[4096];
+	int ret, rc;
+	rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 4,
+				(uint8_t *)buf, sizeof(buf),
+				&ret, 1000);
+	if ( rc < 0 ) {
+		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
+			odw_cmd, system_err());
+		return 0;
+	}
+	printf("Got %d bytes\n", ret);
+	hex_dump(buf, ret, 16);
+
+	return 1;
+#else
 	const uint8_t msg_1[2] = { 0, 0 };
 	const uint8_t msg_2[16] = {1, 0xf, 0, 0, 0, 0, 0, 1,
 				0x21, 0, 4, 0, 1, 1, 0, 0xff};
@@ -337,6 +353,7 @@ static int init_stuff(struct _dongle *d)
 		return 0;
 
 	return 1;
+#endif
 }
 
 int dongle__make_live(struct _dongle *d)
@@ -504,19 +521,16 @@ err:
 	return NULL;
 }
 
-int dongle_atcmd(dongle_t d, const char *cmd)
+static int cmd_trancieve(dongle_t d, const uint8_t *cmd, size_t cmd_len)
 {
 	uint8_t buf[4096];
-	size_t cmd_len;
 	int ret, rc;
 
 	if ( !dongle__make_live(d) )
 		return 0;
 
-	cmd_len = strlen(cmd);
-
-	//printf("ATCMD\n");
-	//hex_dump((const uint8_t *)cmd, cmd_len, 16);
+	printf("ATCMD %d bytes\n", cmd_len);
+	hex_dump(cmd, cmd_len, 16);
 	rc = libusb_bulk_transfer(d->d_handle, 2,
 					(uint8_t *)cmd, cmd_len, &ret,
 					1000);
@@ -528,15 +542,40 @@ int dongle_atcmd(dongle_t d, const char *cmd)
 
 	rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 2,
 					buf, sizeof(buf),
-					&ret, 1000);
+					&ret, 3000);
 	if ( rc < 0 ) {
-		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
-			odw_cmd, system_err());
+		fprintf(stderr, "%s: libusb_bulk_transfer: %d\n",
+			odw_cmd, rc);
 		return 0;
 	}
 
 	printf("<<< %.*s\n", ret, buf);
 	//hex_dump(buf, ret, 16);
 
+
+	return 1;
+}
+
+int dongle_atcmd(dongle_t d, const char *cmd)
+{
+	size_t len = strlen(cmd);
+	char buf[4096];
+	int ret, rc;
+	size_t i;
+
+	for(i = 0; i < len; i++) {
+		cmd_trancieve(d, (uint8_t *)cmd + i, 1);
+	}
+
+	rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 2,
+					buf, sizeof(buf),
+					&ret, 3000);
+	if ( rc < 0 ) {
+		fprintf(stderr, "%s: libusb_bulk_transfer: %d\n",
+			odw_cmd, rc);
+		return 0;
+	}
+
+	printf("<<< %.*s\n", ret, buf);
 	return 1;
 }
