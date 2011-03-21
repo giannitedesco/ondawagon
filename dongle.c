@@ -167,20 +167,14 @@ static int do_init_cycle(struct _dongle *d, const uint8_t *ptr, size_t len)
 		return 0;
 	}
 
-	do {
-		usleep(1000000);
-		rc = libusb_bulk_transfer(d->d_handle,
-						LIBUSB_ENDPOINT_IN | 6,
-						buf, 8,
-						&ret, 10000);
-		if ( rc < 0 ) {
-			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
-				odw_cmd, system_err());
-			return 0;
-		}
+	rc = libusb_bulk_transfer(d->d_handle,
+					LIBUSB_ENDPOINT_IN | 6,
+					buf, 8,
+					&ret, 1000);
+	if ( rc > 0 ) {
 		printf("Got %d bytes\n", ret);
 		hex_dump(buf, ret, 16);
-	}while(ret != 8);
+	}
 
 	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x1, 0, 4,
 					buf, sizeof(buf), 1000);
@@ -194,106 +188,8 @@ static int do_init_cycle(struct _dongle *d, const uint8_t *ptr, size_t len)
 	return 1;
 }
 
-static int set_at_mode(struct _dongle *d)
-{
-	uint8_t msg_f[7] = {0, 0xc2, 1, 0, 0, 0, 8};
-	uint8_t buf[4096];
-	int rc, ret, i;
-
-	printf("--- Stuff ---\n");
-	for(i = 0; i < 3; i++) {
-		ret = libusb_control_transfer(d->d_handle, 0xa1, 0x21, 0, 3,
-						buf, 7, 1000);
-		if ( ret < 0 ) {
-			fprintf(stderr, "%s: libusb_control_"
-				"transfer_weird: %s\n",
-				odw_cmd, system_err());
-			//return 0;
-		}
-		hex_dump(buf, ret, 16);
-	}
-
-	ret = libusb_control_transfer(d->d_handle, 0x21, 0x20, 0, 3,
-					msg_f, sizeof(msg_f), 1000);
-	if ( ret < 0 ) {
-		fprintf(stderr, "%s: libusb_control_transfer: %s\n",
-			odw_cmd, system_err());
-		//return 0;
-	}
-
-	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x21, 0, 3,
-					buf, 7, 1000);
-	if ( ret < 0 ) {
-		fprintf(stderr, "%s: libusb_control_"
-			"transfer_weird: %s\n",
-			odw_cmd, system_err());
-		//return 0;
-	}
-	hex_dump(buf, ret, 16);
-
-	ret = libusb_control_transfer(d->d_handle, 0x21, 0x20, 0, 3,
-					msg_f, sizeof(msg_f), 1000);
-	if ( ret < 0 ) {
-		fprintf(stderr, "%s: libusb_control_transfer: %s\n",
-			odw_cmd, system_err());
-		//return 0;
-	}
-
-	printf("--- Switching to AT mode? ---\n");
-	rc = libusb_bulk_transfer(d->d_handle, 4,
-					(uint8_t *)"AT%MODE?\n", 9, &ret,
-					1000);
-	if ( rc < 0 || (size_t)ret != 9 ) {
-		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
-			odw_cmd, system_err());
-		//return 0;
-	}
-
-	rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 5,
-					buf, sizeof(buf),
-					&ret, 1000);
-	if ( rc < 0 ) {
-		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
-			odw_cmd, system_err());
-		//return 0;
-	}
-	hex_dump(buf, ret, 16);
-
-	do {
-		usleep(1000000);
-		rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 5,
-						buf, sizeof(buf),
-						&ret, 5000);
-		if ( rc < 0 ) {
-			fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
-				odw_cmd, system_err());
-			//return 0;
-			continue;
-		}
-		hex_dump(buf, ret, 16);
-	}while(ret != 9);
-
-	return 1;
-}
-
 static int init_stuff(struct _dongle *d)
 {
-#if 0
-	uint8_t buf[4096];
-	int ret, rc;
-	rc = libusb_bulk_transfer(d->d_handle, LIBUSB_ENDPOINT_IN | 4,
-				(uint8_t *)buf, sizeof(buf),
-				&ret, 1000);
-	if ( rc < 0 ) {
-		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
-			odw_cmd, system_err());
-		return 0;
-	}
-	printf("Got %d bytes\n", ret);
-	hex_dump(buf, ret, 16);
-
-	return 1;
-#endif
 	const uint8_t msg_1[2] = { 0, 0 };
 	const uint8_t msg_2[16] = {1, 0xf, 0, 0, 0, 0, 0, 1,
 				0x21, 0, 4, 0, 1, 1, 0, 0xff};
@@ -349,18 +245,14 @@ static int init_stuff(struct _dongle *d)
 	}
 	hex_dump(buf, ret, 16);
 
-	if ( !set_at_mode(d) )
-		return 0;
-
 	return 1;
 }
 
 int dongle__make_live(struct _dongle *d)
 {
-	struct libusb_config_descriptor *conf;
+	struct libusb_config_descriptor *conf = NULL;
 	libusb_device *dev;
-	unsigned int i;
-	int ret;
+	unsigned int i, j;
 
 	if ( d->d_state == DONGLE_STATE_ZEROCD ) {
 		fprintf(stderr, "%s: Device needs to be made ready\n", odw_cmd);
@@ -370,44 +262,61 @@ int dongle__make_live(struct _dongle *d)
 	if ( d->d_state >= DONGLE_STATE_LIVE )
 		return 1;
 
-	if ( !kill_kernel_driver(d->d_handle, 0) )
-		return 0;
+	/* First pass killing drivers, so we can set config */
+	if ( !kill_kernel_driver(d->d_handle, 1) )
+		goto err;
 
-#if 0
 	if ( libusb_set_configuration(d->d_handle, 1) ) {
 		fprintf(stderr, "%s: libusb_set_configuration: %s\n",
 			odw_cmd, system_err());
+		goto err;
 	}
-#endif
+
+	printf("%s: set config #1\n", odw_cmd);
 
 	dev = libusb_get_device(d->d_handle);
-	if ( libusb_get_active_config_descriptor(dev, &conf) ) {
-		return 0;
-	}
-
-	if ( conf->bConfigurationValue != 1 ) {
-		fprintf(stderr, "%s: unable to use config #1\n", odw_cmd);
-		return 0;
-	}
+	if ( libusb_get_active_config_descriptor(dev, &conf) )
+		goto err;
 
 	/* Claim all interfaces */
-	for(ret = 1, i = 0; i < conf->bNumInterfaces - 1U; i++) {
+	for(i = 0; i < conf->bNumInterfaces - 1U; i++) {
 		libusb_detach_kernel_driver(d->d_handle, i);
-		if ( libusb_claim_interface(d->d_handle, i) ) {
+		if ( libusb_claim_interface(d->d_handle, i) < 0 ) {
 			fprintf(stderr, "%s: libusb_claim_interface: %s\n",
 				odw_cmd, system_err());
-			libusb_free_config_descriptor(conf);
-			return 0;
+			goto err_release;
 		}
-		printf("%s: %s: claimed interface %u\n",
-			odw_cmd, d->d_serial, i);
+		printf("%s: claimed interface %u\n", odw_cmd, i);
 	}
 
 	libusb_free_config_descriptor(conf);
 
-	//init_stuff(d);
+	/* Re-check that we claimed interfaces on the right config and
+	 * it didn't get changed from under us */
+	if ( libusb_get_active_config_descriptor(dev, &conf) ) {
+		conf = NULL;
+		goto err_release;
+	}
+
+	if ( conf->bConfigurationValue != 1 ) {
+		printf("%s: %s: unable to claim config #1\n",
+			odw_cmd, d->d_serial);
+		goto err;
+	}
+
+	libusb_free_config_descriptor(conf);
+
+	init_stuff(d);
 	d->d_state = DONGLE_STATE_LIVE;
 	return 1;
+
+err_release:
+	for(j = 0; j < i; j++)
+		libusb_release_interface(d->d_handle, j);
+err:
+	if ( conf )
+		libusb_free_config_descriptor(conf);
+	return 0;
 }
 
 int dongle_ready(dongle_t d)
@@ -423,7 +332,7 @@ int dongle_ready(dongle_t d)
 	if ( d->d_state != DONGLE_STATE_ZEROCD )
 		return 1;
 
-	printf("%s; Mode-switching %s\n", odw_cmd, d->d_serial);
+	printf("%s: Mode-switching %s\n", odw_cmd, d->d_serial);
 	if ( !kill_kernel_driver(d->d_handle, 1) ) {
 		fprintf(stderr, "%s: kill_kernel_driver: %s\n",
 			odw_cmd, system_err());
