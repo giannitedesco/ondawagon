@@ -16,7 +16,7 @@
 
 #include "ondawagon.h"
 
-const char *system_err(void)
+const char *os_err(void)
 {
 	return strerror(errno);
 }

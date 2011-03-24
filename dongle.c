@@ -163,7 +163,7 @@ static int do_init_cycle(struct _dongle *d, const uint8_t *ptr, size_t len)
 					(uint8_t *)ptr, len, 1000);
 	if ( ret < 0 ) {
 		fprintf(stderr, "%s: libusb_control_transfer_x: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		return 0;
 	}
 
@@ -171,7 +171,7 @@ static int do_init_cycle(struct _dongle *d, const uint8_t *ptr, size_t len)
 					buf, sizeof(buf), 1000);
 	if ( ret < 0 ) {
 		fprintf(stderr, "%s: libusb_control_transfer_x: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		return 0;
 	}
 	hex_dump(buf, ret, 16);
@@ -205,7 +205,7 @@ static int init_stuff(struct _dongle *d)
 				(uint8_t *)msg_1, sizeof(msg_1), 10000);
 	if ( ret < 0 ) {
 		fprintf(stderr, "%s: libusb_control_transfer_1: %d %s\n",
-			odw_cmd, ret, system_err());
+			odw_cmd, ret, os_err());
 		//return 0;
 	}
 
@@ -231,7 +231,7 @@ static int init_stuff(struct _dongle *d)
 					buf, 1, 1000);
 	if ( ret < 0 ) {
 		fprintf(stderr, "%s: libusb_control_transfer_final: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		return 0;
 	}
 	hex_dump(buf, ret, 16);
@@ -259,7 +259,7 @@ int dongle_init(dongle_t d)
 
 	if ( libusb_set_configuration(d->d_handle, 1) ) {
 		fprintf(stderr, "%s: libusb_set_configuration: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		goto err;
 	}
 
@@ -274,7 +274,7 @@ int dongle_init(dongle_t d)
 		libusb_detach_kernel_driver(d->d_handle, i);
 		if ( libusb_claim_interface(d->d_handle, i) < 0 ) {
 			fprintf(stderr, "%s: libusb_claim_interface: %s\n",
-				odw_cmd, system_err());
+				odw_cmd, os_err());
 			goto err_release;
 		}
 		printf("%s: claimed interface %u\n", odw_cmd, i);
@@ -326,20 +326,20 @@ int dongle_ready(dongle_t d)
 	printf("%s: Mode-switching %s\n", odw_cmd, d->d_serial);
 	if ( !kill_kernel_driver(d->d_handle, 1) ) {
 		fprintf(stderr, "%s: kill_kernel_driver: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		return 0;
 	}
 
 	if ( libusb_set_configuration(d->d_handle, 1) ) {
 		fprintf(stderr, "%s: libusb_set_configuration: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		return 0;
 	}
 
 	/* FIXME: wrong interface to claim */
 	if ( libusb_claim_interface(d->d_handle, 0) ) {
 		fprintf(stderr, "%s: libusb_claim_interface: %s\n",
-		odw_cmd, system_err());
+		odw_cmd, os_err());
 		return 0;
 	}
 
@@ -348,13 +348,13 @@ int dongle_ready(dongle_t d)
 				&ret, 1000);
 	if ( rc < 0 || (size_t)ret != sizeof(buf) ) {
 		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		return 0;
 	}
 
 	if ( libusb_reset_device(d->d_handle) ) {
 		fprintf(stderr, "%s: libusb_reset_device: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		return 0;
 	}
 
@@ -369,13 +369,13 @@ struct _dongle *dongle__open(libusb_device *dev, unsigned int flags)
 	d = calloc(1, sizeof(*d));
 	if ( NULL == d ) {
 		fprintf(stderr, "%s: calloc: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		goto err;
 	}
 
 	if ( libusb_open(dev, &d->d_handle) ) {
 		fprintf(stderr, "%s: libusb_open: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		goto err_free;
 	}
 
@@ -391,21 +391,21 @@ struct _dongle *dongle__open(libusb_device *dev, unsigned int flags)
 	d->d_serial = get_string(d, desc.iSerialNumber);
 	if ( NULL == d->d_serial ) {
 		fprintf(stderr, "%s: get_serial: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		goto err_close;
 	}
 
 	d->d_product = get_string(d, desc.iProduct);
 	if ( NULL == d->d_product ) {
 		fprintf(stderr, "%s: get_label: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		goto err_strings;
 	}
 
 	d->d_mnfr = get_string(d, desc.iManufacturer);
 	if ( NULL == d->d_mnfr ) {
 		fprintf(stderr, "%s: get_label: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		goto err_strings;
 	}
 
@@ -438,7 +438,7 @@ int dongle_atcmd(dongle_t d, const char *cmd)
 					1000);
 	if ( rc < 0 || (size_t)ret != cmd_len ) {
 		fprintf(stderr, "%s: libusb_bulk_transfer: %s\n",
-			odw_cmd, system_err());
+			odw_cmd, os_err());
 		return 0;
 	}
 
