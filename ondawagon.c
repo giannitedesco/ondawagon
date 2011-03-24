@@ -87,6 +87,10 @@ static int do_shell(const char *ser)
 		return EXIT_FAILURE;
 	}
 
+	if ( !dongle_init(d) ) {
+		return EXIT_FAILURE;
+	}
+
 	printf("--- ONDA 3G dongle command shell ---\n");
 	printf("Send EOF (ctrl-D) to exit\n");
 

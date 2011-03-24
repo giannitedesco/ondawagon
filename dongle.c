@@ -248,7 +248,7 @@ static int init_stuff(struct _dongle *d)
 	return 1;
 }
 
-int dongle__make_live(struct _dongle *d)
+int dongle_init(dongle_t d)
 {
 	struct libusb_config_descriptor *conf = NULL;
 	libusb_device *dev;
@@ -437,7 +437,7 @@ int dongle_atcmd(dongle_t d, const char *cmd)
 	size_t cmd_len = strlen(cmd);
 	int ret, rc, i;
 
-	if ( !dongle__make_live(d) )
+	if ( d->d_state != DONGLE_STATE_LIVE )
 		return 0;
 
 	//printf("ATCMD %d bytes\n", cmd_len);
