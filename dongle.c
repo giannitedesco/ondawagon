@@ -156,7 +156,7 @@ static void hex_dump(const uint8_t *ptr, size_t len, size_t llen)
 static int do_init_cycle(struct _dongle *d, const uint8_t *ptr, size_t len)
 {
 	uint8_t buf[4096];
-	int ret;
+	int ret, rc;
 
 	printf("--- Init Cycle ---\n");
 
@@ -166,6 +166,15 @@ static int do_init_cycle(struct _dongle *d, const uint8_t *ptr, size_t len)
 		fprintf(stderr, "%s: libusb_control_transfer_x: %s\n",
 			odw_cmd, os_err());
 		return 0;
+	}
+
+	rc = libusb_bulk_transfer(d->d_handle,
+					LIBUSB_ENDPOINT_IN | 6,
+					buf, 8,
+					&ret, 1000);
+	if ( rc > 0 ) {
+		printf("Got %d bytes\n", ret);
+		hex_dump(buf, ret, 16);
 	}
 
 	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x1, 0, 4,
@@ -199,6 +208,12 @@ static int init_stuff(struct _dongle *d)
 				0x22, 0, 4, 0, 1, 1, 0, 1};
 	const uint8_t msg_9[16] = {1, 0xf, 0, 0, 0, 0, 0, 5,
 				0x20, 0, 4, 0, 1, 1, 0, 0};
+#if 0
+	const uint8_t msg_10[13] = {1, 0xc, 0, 0, 2, 2, 0, 8,
+				0, 0x21, 0, 0, 0}; /* returns MTU */
+	const uint8_t msg_11[13] = {1, 0xc, 0, 0, 2, 2, 0, 0xb,
+				0, 0x24, 0, 0, 0}; /* returns firmware ver */
+#endif
 	uint8_t buf[4096];
 	int ret;
 
@@ -226,6 +241,12 @@ static int init_stuff(struct _dongle *d)
 		return 0;
 	if ( !do_init_cycle(d, msg_9, sizeof(msg_9)) )
 		return 0;
+#if 0
+	if ( !do_init_cycle(d, msg_10, sizeof(msg_10)) )
+		return 0;
+	if ( !do_init_cycle(d, msg_11, sizeof(msg_11)) )
+		return 0;
+#endif
 
 	printf("--- Should return zero ---\n");
 	ret = libusb_control_transfer(d->d_handle, 0xa1, 0xfe, 0, 5,
