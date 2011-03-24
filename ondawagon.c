@@ -109,6 +109,26 @@ static int do_shell(const char *ser)
 	return EXIT_SUCCESS;
 }
 
+static int do_ifup(const char *ser)
+{
+	dongle_t d;
+
+	d = dongle_open(ser);
+	if ( NULL == d ) {
+		fprintf(stderr, "%s: dongle: %s: not found\n", odw_cmd, ser);
+		return EXIT_FAILURE;
+	}
+
+	if ( !dongle_init(d) ) {
+		return EXIT_FAILURE;
+	}
+
+	if ( !dongle_ifup(d) )
+		return EXIT_FAILURE;
+
+	return EXIT_SUCCESS;
+}
+
 static int do_ready(const char *ser)
 {
 	dongle_t d;
@@ -140,6 +160,7 @@ static void usage(FILE *f)
 	fprintf(f, "Usage:\n");
 	fprintf(f, " --list             List all dongles\n");
 	fprintf(f, " --ready <serial>   Switch dongle in to 3G mode\n");
+	fprintf(f, " --ifup <serial>    Bring up network interface\n");
 	fprintf(f, " --help, -h         Display this massage\n");
 	fprintf(f, "\n");
 }
@@ -169,6 +190,11 @@ int main(int argc, char **argv)
 		if ( !strcmp(argv[i], "--shell") && i + 1 < argc ) {
 			const char *ser = argv[i + 1];
 			ret = do_shell(ser);
+			break;
+		}
+		if ( !strcmp(argv[i], "--ifup") && i + 1 < argc ) {
+			const char *ser = argv[i + 1];
+			ret = do_ifup(ser);
 			break;
 		}
 		if ( !strcmp(argv[i], "--help") ||

@@ -17,6 +17,7 @@
 
 #include "ondawagon.h"
 #include "dongle.h"
+#include "tapif.h"
 
 const char *dongle_serial(dongle_t d)
 {
@@ -458,5 +459,20 @@ int dongle_atcmd(dongle_t d, const char *cmd)
 		i++;
 	}while(i < 2);
 
+	return 1;
+}
+
+int dongle_ifup(dongle_t d)
+{
+	tapif_t tapif;
+
+	if ( d->d_state != DONGLE_STATE_LIVE )
+		return 0;
+
+	tapif = tapif_open("zte%d");
+	if ( NULL == tapif )
+		return 0;
+
+	tapif_close(tapif);
 	return 1;
 }

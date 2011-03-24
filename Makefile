@@ -3,7 +3,7 @@ TARGET: all
 
 CONFIG_MAK := Config.mak
 $(CONFIG_MAK): ./configure
-	./configure
+	-./configure
 
 -include $(CONFIG_MAK)
 
@@ -17,6 +17,7 @@ CFLAGS := -g -pipe -Os -Wall -Wsign-compare -Wcast-align -Waggregate-return -Wst
 
 ALL_BIN := ondawagon
 ONDA_OBJ := devlist.o \
+		$(TAPIF_OBJ) \
 		nbio.c \
 		nbio-epoll.c \
 		nbio-poll.c \

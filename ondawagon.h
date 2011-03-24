@@ -15,5 +15,6 @@ const char *dongle_manufacturer(dongle_t d);
 const char *dongle_product(dongle_t d);
 int dongle_needs_ready(dongle_t d);
 int dongle_atcmd(dongle_t d, const char *cmd);
+int dongle_ifup(dongle_t d);
 
 #endif /* _ONDAWAGON_H */
