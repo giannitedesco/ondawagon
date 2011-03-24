@@ -155,7 +155,7 @@ static void hex_dump(const uint8_t *ptr, size_t len, size_t llen)
 static int do_init_cycle(struct _dongle *d, const uint8_t *ptr, size_t len)
 {
 	uint8_t buf[4096];
-	int ret, rc;
+	int ret;
 
 	printf("--- Init Cycle ---\n");
 
@@ -165,15 +165,6 @@ static int do_init_cycle(struct _dongle *d, const uint8_t *ptr, size_t len)
 		fprintf(stderr, "%s: libusb_control_transfer_x: %s\n",
 			odw_cmd, system_err());
 		return 0;
-	}
-
-	rc = libusb_bulk_transfer(d->d_handle,
-					LIBUSB_ENDPOINT_IN | 6,
-					buf, 8,
-					&ret, 1000);
-	if ( rc > 0 ) {
-		printf("Got %d bytes\n", ret);
-		hex_dump(buf, ret, 16);
 	}
 
 	ret = libusb_control_transfer(d->d_handle, 0xa1, 0x1, 0, 4,
