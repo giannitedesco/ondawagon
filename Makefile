@@ -36,7 +36,7 @@ else
 CLEAN_DEP :=
 endif
 
-%.o %.d: %.c $(CLEAN_DEP) $(CONFIG_MAK)
+%.o %.d: %.c $(CLEAN_DEP) $(CONFIG_MAK) Makefile
 	@echo " [C] $(patsubst .%.d, %.c, $@)"
 	@$(CC) $(CFLAGS) -MMD -MF $(patsubst %.o, .%.d, $@) \
 		-MT $(patsubst .%.d, %.o, $@) \
