@@ -21,6 +21,5 @@ struct _dongle {
 };
 
 struct _dongle *dongle__open(libusb_device *dev, unsigned int flags);
-int dongle__make_live(struct _dongle *d);
 
 #endif /* _DONGLE_H */
