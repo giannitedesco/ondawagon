@@ -18,9 +18,9 @@ CFLAGS := -g -pipe -Os -Wall -Wsign-compare -Wcast-align -Waggregate-return -Wst
 ALL_BIN := ondawagon
 ONDA_OBJ := devlist.o \
 		$(TAPIF_OBJ) \
-		nbio.c \
-		nbio-epoll.c \
-		nbio-poll.c \
+		nbio.o \
+		nbio-epoll.o \
+		nbio-poll.o \
 		dongle.o \
 		ondawagon.o
 ALL_OBJ := $(ONDA_OBJ)
@@ -51,5 +51,5 @@ clean:
 	$(RM) Config.mak $(ALL_BIN) $(ALL_OBJ) $(ALL_DEP)
 
 ifneq ($(MAKECMDGOALS),clean)
--include .*.d
+-include $(ALL_DEP)
 endif
